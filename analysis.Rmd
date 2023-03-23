@@ -1,0 +1,254 @@
+Suicide rates overview
+
+```{r}
+library(tidyverse)
+library(gapminder)
+library(echarts4r)
+library(gganimate)
+library(ggiraph)
+library(widgetframe)
+library(ggthemes)
+library(plotly)
+library(viridis)
+library(DT)
+library(corrplot)
+```
+
+```{r}
+suicide_data <- read.csv("./datasets/suicide_homicide_gdp.csv")
+suicide_data <- filter(suicide_data, year >= 2000)
+suicide_data$country[suicide_data$country == 'United States'] <- 'USA'
+suicide_data$country[suicide_data$country == 'Slovak Republic'] <- 'Slovakia'
+suicide_data$country[suicide_data$country == 'Russian Federation'] <- 'Russia'
+suicide_data$country[suicide_data$country == 'Congo, Dem. Rep.'] <- 'Democratic Republic of the Congo'
+suicide_data$country[suicide_data$country == 'Congo, Rep.'] <- 'Republic of Congo'
+suicide_data$country[suicide_data$country == 'Iran, Islamic Rep.'] <- 'Iran'
+suicide_data$country[suicide_data$country == 'Egypt, Arab Rep.'] <- 'Egypt'
+suicide_data$country[suicide_data$country == 'Venezuela, RB'] <- 'Venezuela'
+suicide_data$country[suicide_data$country == 'Yemen, Rep.'] <- 'Yemen'
+suicide_data$country[suicide_data$country == 'Cote d\'Ivoire'] <- 'Ivory Coast'
+suicide_data$country[suicide_data$country == 'Lao PDR'] <- 'Laos'
+suicide_data$country[suicide_data$country == 'Kyrgyz Republic'] <- 'Kyrgyzstan'
+suicide_data$country[suicide_data$country == 'Syrian Arab Republic'] <- 'Syria'
+suicide_data$country[suicide_data$country == 'Eswatini'] <- 'Swaziland'
+
+names(suicide_data)[names(suicide_data) == "Intentional.homicides..per.100.000.people."] <- "homcides_per_100k"
+names(suicide_data)[names(suicide_data) == "Suicide.mortality.rate..per.100.000.population."] <- "suicides_per_100k"
+names(suicide_data)[names(suicide_data) == "GDP.per.capita..PPP..current.international..."] <- "gdp_per_capita"
+
+suicide_data
+```
+
+
+```{r}
+# A map of the world (Antarctica removed)
+
+world <- map_data("world") 
+world
+```
+
+
+
+```{r}
+mapa_animado_4 <- suicide_data %>%
+  left_join(world, by= c(country = "region")) %>%
+  ggplot(aes(long, lat, 
+             group= group, 
+             fill= suicides_per_100k)) +
+  geom_polygon(color = "white", 
+               size = 0.01) +
+  theme_void() +
+  scale_fill_viridis(option = "magma",
+                    name= "suicides per 100k residents",
+                    guide = guide_colorbar(
+                    direction = "horizontal",
+                    barheight = unit(10, units = "mm"),
+                    barwidth = unit(400, units = "mm"),
+                    title.position = "top",
+                    title.hjust = 0.5,
+                    title.vjust = 0.5 )) +
+  labs(title="Suicides per 100k residents",
+       subtitle = "{current_frame}")  +
+  theme(
+    plot.title = element_text(size = 40, hjust = 0.5),
+    plot.subtitle = element_text(size = 30, hjust = 0.5),
+    plot.caption = element_text(size = 8, hjust = 1),
+    legend.position = "bottom") +
+  coord_fixed (ratio = 1.3) +
+  transition_manual(year)
+
+
+animate(mapa_animado_4, 
+        fps = 10, 
+        height = 700, 
+        width = 1200)
+```
+
+```{r}
+top_3_by_year <- suicide_data %>%
+  arrange(desc(suicides_per_100k)) %>%
+  group_by(year) %>%
+  slice(1:3)
+
+countries_top_3 <- distinct(top_3_by_year, country)["country"]
+top_3_by_year <- inner_join(countries_top_3, suicide_data, by="country")
+top_3_by_year
+```
+
+
+
+```{r}
+plot <- filter(top_3_by_year, (country != "Africa Eastern and Southern") & 
+                 (country != "Africa Western and Central") & 
+                 (country != "Afghanistan")) %>% 
+  ggplot(aes(x=year, y=suicides_per_100k, group=country)) + 
+  labs(
+    title = "Suicides per 100 000 residents - countries with the highest suicide rates",
+    y = "Suicides per 100 000 residents" 
+  ) +
+  theme(plot.title = element_text(size = 10, hjust = 0.5)) +
+  geom_line(aes(color = country), size = 1) +
+  geom_point(aes(color = country), size = 2)
+ggsave(filename = "top_suicides_rates.png", width = 8, height = 4.5, dpi = 700)
+plot
+```
+
+```{r}
+library(dplyr)
+library(glue)
+
+# 2015
+world_happiness_data_2015 <- read.csv(glue("datasets/world_happiness_report/2015.csv"))
+world_happiness_data_2015 <- world_happiness_data_2015 %>% 
+  rename("country" = Country) %>%
+  rename("happiness_score" = Happiness.Score) %>%
+  rename("gdp_per_capita" = Economy..GDP.per.Capita.) %>%
+  rename("family" = Family) %>%
+  rename("life_expectancy" = Health..Life.Expectancy.) %>%
+  rename("freedom" = Freedom) %>%
+  rename("corruption" = Trust..Government.Corruption.) %>%
+  rename("generosity" = Generosity)
+  
+world_happiness_data_2015 <- world_happiness_data_2015 %>%
+    select(country, happiness_score, gdp_per_capita, family, 
+         life_expectancy, freedom, corruption, generosity) %>%
+  add_column(year = 2015)
+
+# 2016
+
+world_happiness_data_2016 <- read.csv(glue("datasets/world_happiness_report/2016.csv"))
+world_happiness_data_2016 <- world_happiness_data_2016 %>% 
+  rename("country" = Country) %>%
+  rename("happiness_score" = Happiness.Score) %>%
+  rename("gdp_per_capita" = Economy..GDP.per.Capita.) %>%
+  rename("life_expectancy" = Health..Life.Expectancy.) %>%
+  rename("freedom" = Freedom) %>%
+  rename("corruption" = Trust..Government.Corruption.) %>%
+  rename("generosity" = Generosity)
+  
+world_happiness_data_2016 <- world_happiness_data_2016 %>%
+    select(country, happiness_score, gdp_per_capita,
+         life_expectancy, freedom, corruption, generosity) %>%
+  add_column(year = 2016)
+
+# 2017
+
+world_happiness_data_2017 <- read.csv(glue("datasets/world_happiness_report/2017.csv"))
+world_happiness_data_2017 <- world_happiness_data_2017 %>% 
+  rename("country" = Country) %>%
+  rename("happiness_score" = Happiness.Score) %>%
+  rename("gdp_per_capita" = Economy..GDP.per.Capita.) %>%
+  rename("life_expectancy" = Health..Life.Expectancy.) %>%
+  rename("freedom" = Freedom) %>%
+  rename("corruption" = Trust..Government.Corruption.) %>%
+  rename("generosity" = Generosity)
+  
+world_happiness_data_2017 <- world_happiness_data_2017 %>%
+    select(country, happiness_score, gdp_per_capita, 
+         life_expectancy, freedom, corruption, generosity) %>%
+  add_column(year = 2017)
+
+# 2018
+world_happiness_data_2018 <- read.csv(glue("datasets/world_happiness_report/2018.csv"))
+world_happiness_data_2018 <- world_happiness_data_2018 %>% 
+  rename("country" = Country.or.region) %>%
+  rename("happiness_score" = Score) %>%
+  rename("gdp_per_capita" = GDP.per.capita) %>%
+  rename("life_expectancy" = Healthy.life.expectancy) %>%
+  rename("freedom" = Freedom.to.make.life.choices) %>%
+  rename("corruption" = Perceptions.of.corruption) %>%
+  rename("generosity" = Generosity)
+  
+world_happiness_data_2018 <- world_happiness_data_2018 %>%
+    select(country, happiness_score, gdp_per_capita,
+         life_expectancy, freedom, corruption, generosity) %>%
+  add_column(year = 2018)
+
+# 2019
+world_happiness_data_2019 <- read.csv(glue("datasets/world_happiness_report/2019.csv"))
+world_happiness_data_2019 <- world_happiness_data_2019 %>% 
+  rename("country" = Country.or.region) %>%
+  rename("happiness_score" = Score) %>%
+  rename("gdp_per_capita" = GDP.per.capita) %>%
+  rename("life_expectancy" = Healthy.life.expectancy) %>%
+  rename("freedom" = Freedom.to.make.life.choices) %>%
+  rename("corruption" = Perceptions.of.corruption) %>%
+  rename("generosity" = Generosity)
+  
+world_happiness_data_2019 <- world_happiness_data_2019 %>%
+    select(country, happiness_score, gdp_per_capita,
+         life_expectancy, freedom, corruption, generosity) %>%
+  add_column(year = 2019)
+
+# 2020
+
+world_happiness_data_2020 <- read.csv(glue("datasets/world_happiness_report/2020.csv"))
+world_happiness_data_2020 <- world_happiness_data_2020 %>% 
+  rename("country" = Country.name) %>%
+  rename("happiness_score" = Ladder.score) %>%
+  rename("gdp_per_capita" = Explained.by..Log.GDP.per.capita) %>%
+  rename("life_expectancy" = Explained.by..Healthy.life.expectancy) %>%
+  rename("freedom" = Explained.by..Freedom.to.make.life.choices) %>%
+  rename("corruption" = Explained.by..Perceptions.of.corruption) %>%
+  rename("generosity" = Explained.by..Generosity)
+  
+world_happiness_data_2020 <- world_happiness_data_2020 %>%
+    select(country, happiness_score, gdp_per_capita,
+         life_expectancy, freedom, corruption, generosity)%>%
+  add_column(year = 2020)
+
+world_happiness_data <- list(world_happiness_data_2015,
+                             world_happiness_data_2016,
+                             world_happiness_data_2017,
+                             world_happiness_data_2017,
+                             world_happiness_data_2018,
+                             world_happiness_data_2019,
+                             world_happiness_data_2020)
+world_happiness_data <- Reduce(function(x, y) merge(x, y, all=TRUE), 
+                               world_happiness_data)
+world_happiness_data
+
+```
+
+
+
+```{r}
+merged_data <- merge(suicide_data, world_happiness_data, by=c("country", "year"))
+merged_data <- merged_data %>% 
+  select(
+    suicides_per_100k, 
+    life_expectancy, freedom, corruption, 
+    generosity, gdp_per_capita.y, 
+    happiness_score)
+  
+merged_data <- data.frame(lapply(merged_data, as.numeric))
+merged_data <- merged_data %>%
+  rename("GDP per capita" = gdp_per_capita.y)
+
+correlation <- cor(merged_data, use="complete.obs")
+correlation
+png(filename = "correlation_matrix.png", type='cairo', height=1000, width=1000)
+corrplot(correlation, method = 'shade')
+```
+
+
